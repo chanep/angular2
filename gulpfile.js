@@ -3,17 +3,20 @@ const del = require('del');
 const typescript = require('gulp-typescript');
 const sourcemaps = require('gulp-sourcemaps');
 const tslint = require('gulp-tslint');
-const superstatic = require( 'superstatic' ).server;
 const tsProject = typescript.createProject('./tsconfig.json');
+const connect = require('gulp-connect');
+//const browserSync = require('browser-sync').create();
 
 // clean the contents of the distribution directory
 gulp.task('clean', function () {
-  return del('dist/**/*');
+  console.log("starting del...")
+  return del(['dist/**']).then(function(){console.log("del end...")});//, '!dist', '!dist/lib/**']);
 });
 
 
 // TypeScript compile
 gulp.task('compile', ['clean'], function () {
+  console.log("starting compile...")
   return gulp
     .src('src/app/**/*.ts')
     .pipe(sourcemaps.init())          // <--- sourcemaps
@@ -49,27 +52,55 @@ gulp.task('copy:assets', ['clean'], function() {
 });
 
 gulp.task('watch', function() {
-    gulp.watch(['src/app/**/*'], ['build']);
+    var watcher = gulp.watch(['src/app/**/*'], ['build']);
+    watcher.on('change', function(event) {
+      console.log('File ' + event.path + ' was ' + event.type + ', running tasks...');
+    });
 });
 
-gulp.task('serve', ['build'], function() {
-  
-  var server = superstatic({
-  	port: 3001,
-  	config: {
-  		clean_urls: true,
-	    public: 'dist',
-	   	rewrites: [
-	    	{"source":"/**","destination":"/index.html"}
-	  	]
-  	}
-  });
-  
-  server.listen( function() {
-    console.log( 'Server running on port 3001' );
-  });
-  
+gulp.task('watch-reload', function() {
+    var watcher = gulp.watch(['src/app/**/*'], ['reload']);
+    watcher.on('change', function(event) {
+      console.log('File ' + event.path + ' was ' + event.type + ', running tasks...');
+    });
 });
+
+
+gulp.task('server', function() {
+  connect.server({
+    port: 3001,
+    root: 'dist',
+    fallback: 'dist/index.html',
+    livereload: true
+  });
+});
+ 
+gulp.task('reload', ['build'], function () {
+  gulp.src('./dist/*.html')
+    .pipe(connect.reload());
+});
+
+
+// gulp.task('watch-reload', function() {
+//     var watcher = gulp.watch(['src/app/**/*'], ['build'], browserSync.reload);
+//     watcher.on('change', function(event) {
+//       console.log('File ' + event.path + ' was ' + event.type + ', running tasks...');
+//     });
+// });
+
+// gulp.task('server', ['build'], function() {
+//   // Serve files from the root of this project
+//     browserSync.init({
+//         port: 8080,
+//         server: {
+//             baseDir: "./dist",
+//             index: ".dist/index.html"
+//         }
+//     });
+// });
+
+
 
 gulp.task('build', ['tslint', 'compile', 'copy:libs', 'copy:assets']);
 gulp.task('default', ['build']);
+gulp.task('serve', ['server', 'watch-reload']);
